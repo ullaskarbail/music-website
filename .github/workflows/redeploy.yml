@@ -1,0 +1,42 @@
+name: Manual Redeploy (Streamlit)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install requirements (quick)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir streamlit requests
+
+      - name: Run quick smoke test
+        run: |
+          python - <<'PY'
+          import streamlit, requests
+          print('smoke test OK')
+          PY
+
+      - name: Update redeploy trigger file
+        run: |
+          echo "redeploy: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .streamlit/deploy_trigger.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .streamlit/deploy_trigger.txt
+          git commit -m "chore: trigger Streamlit redeploy [skip ci]" || echo "no changes to commit"
+          git push origin HEAD:main
